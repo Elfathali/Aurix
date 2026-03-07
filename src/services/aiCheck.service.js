@@ -1,15 +1,24 @@
-async function checkFraud({ fromUser, toUser, amount }) {
-  const forced = process.env.AI_FORCE_DECISION;
-  if (forced === "APPROVE" || forced === "REVIEW" || forced === "BLOCK") {
-    return { fraudScore: 0.99, decision: forced, reason: `Forced: ${forced}` };
-  }
+const axios = require("axios");
 
-  const score = Math.random();
-  let decision = "APPROVE";
-  if (score >= 0.8) decision = "BLOCK";
-  else if (score >= 0.6) decision = "REVIEW";
+const AI_BASE_URL = process.env.AI_BASE_URL || "http://127.0.0.1:8001";
 
-  return { fraudScore: Number(score.toFixed(2)), decision, reason: "Mock AI decision" };
+async function checkFraud({ userId, amount, currency = "EUR", device_id = "web", location = "DE" }) {
+  const aiPayload = {
+    user_id: userId,
+    amount: Number(amount),
+    currency,
+    device_id,
+    location,
+    timestamp: new Date().toISOString(),
+  };
+
+  const aiResp = await axios.post(
+    `${AI_BASE_URL}/v1/transaction-risks`,
+    aiPayload,
+    { timeout: 5000 }
+  );
+
+  return aiResp.data;
 }
 
 module.exports = { checkFraud };
