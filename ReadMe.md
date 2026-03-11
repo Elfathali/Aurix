@@ -1,132 +1,195 @@
-Backend service for Aurix MVP Demo.
+Aurix Backend
 
-This API provides:
+Backend service for the Aurix Fintech Platform built with Node.js, Express, MongoDB, and AI Fraud Detection (FastAPI).
+
+The backend manages:
 
 Authentication (JWT)
 
-Wallet system
+Wallet balances
 
-Transactions
+Money transfers
 
-AI Fraud Check integration (mock + replaceable)
+AI fraud detection before transaction execution
 
-📦 Tech Stack
+Architecture
+Frontend (React / Flutter)
+        │
+        ▼
+Node.js Backend (Express)
+        │
+        │  POST /v1/fraud-score
+        ▼
+AI Fraud Detection Service (FastAPI)
+        │
+        ▼
+MongoDB (Users / Wallets / Transactions)
+
+Transaction flow:
+
+User sends money
+      │
+      ▼
+Backend calls AI fraud service
+      │
+      ├── APPROVE → execute transaction
+      ├── REVIEW  → hold transaction
+      └── BLOCK   → reject transaction
+Tech Stack
+
+Backend
 
 Node.js
 
-Express
+Express.js
 
-MongoDB (Mongoose)
+MongoDB
+
+Mongoose
 
 JWT Authentication
 
-Nodemon (dev)
+AI Service
 
-⚙️ Setup
-1️⃣ Install dependencies
-npm install
-2️⃣ Create .env file
+Python
+
+FastAPI
+
+Uvicorn
+
+Tools
+
+Postman
+
+Nodemon
+
+Axios
+
+Project Structure
+src
+ ├── config
+ ├── controllers
+ │    ├── auth.controller.js
+ │    ├── wallet.controller.js
+ │    └── transaction.controller.js
+ │
+ ├── middleware
+ │    └── auth.js
+ │
+ ├── models
+ │    ├── User.js
+ │    ├── Wallet.js
+ │    └── Transaction.js
+ │
+ ├── routes
+ │    ├── auth.routes.js
+ │    ├── wallet.routes.js
+ │    └── transaction.routes.js
+ │
+ ├── services
+ │    └── aiCheck.service.js
+ │
+ ├── app.js
+ └── server.js
+
+.env
+package.json
+README.md
+Environment Variables
+
+Create .env
+
 PORT=4000
+
 MONGO_URI=mongodb+srv://<username>:<password>@cluster.mongodb.net/aurix
+
 JWT_SECRET=supersecretkey
-AI_CHECK_URL=http://localhost:5001/check   # optional for real AI later
-AI_FORCE_DECISION=                         # APPROVE / REVIEW / BLOCK (for testing)
-3️⃣ Run server
+
+AI_BASE_URL=http://127.0.0.1:8001
+Installation
+
+Clone the repository
+
+git clone https://github.com/YOUR_REPO/aurix-backend.git
+cd aurix-backend
+
+Install dependencies
+
+npm install
+
+Run the backend
+
 npm run dev
 
-Server will run on:
+Server runs on:
 
 http://localhost:4000
-🔐 Authentication
+AI Service Setup
 
-All protected endpoints require:
+The AI fraud detection service runs separately using FastAPI.
 
-Authorization: Bearer <TOKEN>
-📌 API Endpoints
-1️⃣ Health Check
-GET /
+Navigate to AI project:
 
-Response
+cd aurix-ai-main
 
-{
-  "ok": true,
-  "service": "aurix"
-}
-2️⃣ Signup
+Create virtual environment
+
+python -m venv venv
+
+Activate environment
+
+Windows:
+
+venv\Scripts\activate
+
+Install dependencies
+
+pip install -r requirements.txt
+
+Run AI service
+
+python -m uvicorn main:app --host 0.0.0.0 --port 8001 --reload
+
+AI server will run on:
+
+http://127.0.0.1:8001
+
+Swagger documentation:
+
+http://127.0.0.1:8001/docs
+API Endpoints
+Authentication
+Register user
 POST /auth/signup
 
-Body
+Body:
 
 {
   "email": "user@test.com",
   "password": "123456"
 }
-
-Success
-
-{
-  "message": "User created"
-}
-
-Errors
-
-{ "message": "email and password are required" }
-{ "message": "User already exists" }
-3️⃣ Login
+Login
 POST /auth/login
 
-Body
+Response:
 
 {
-  "email": "user@test.com",
-  "password": "123456"
+  "token": "JWT_TOKEN"
 }
-
-Success
-
-{
-  "token": "JWT_TOKEN_HERE"
-}
-4️⃣ Get Wallet Balance
+Wallet
+Get wallet balance
 GET /wallet/me
 
-Headers
+Header:
 
-Authorization: Bearer <TOKEN>
-
-Response
-
-{
-  "userId": "USER_ID",
-  "balance": 100
-}
-5️⃣ Credit Wallet (Add Money – Demo)
-
-Used by Stripe integration later.
-
-POST /wallet/credit
-
-Body
-
-{
-  "userId": "USER_ID",
-  "amount": 500
-}
-
-Response
-
-{
-  "message": "Wallet credited",
-  "wallet": {
-    "balance": 500
-  }
-}
-6️⃣ Send Money (MAIN FEATURE)
+Authorization: Bearer TOKEN
+Transactions
+Send money
 POST /tx/send
 
 Headers
 
-Authorization: Bearer <TOKEN>
+Authorization: Bearer TOKEN
 
 Body
 
@@ -134,101 +197,72 @@ Body
   "toEmail": "receiver@test.com",
   "amount": 100
 }
-🤖 AI Fraud Check
+AI Fraud Check Integration
 
-Before any transaction is processed, backend calls AI service.
+Before executing a transaction, the backend calls the AI service.
 
-Currently implemented as:
+Endpoint used:
 
-Mock AI (random decision)
+POST /v1/fraud-score
 
-Replaceable with real AI endpoint via aiCheck.service.js
+Request sent to AI:
 
-
-📊 Possible Responses
-✅ APPROVED
 {
-  "status": "APPROVED",
-  "message": "Transaction successful",
-  "ai": {
-    "fraudScore": 0.21,
-    "decision": "APPROVE",
-    "reason": "Low risk"
-  }
+  "user_id": "user123",
+  "amount": 100,
+  "currency": "EUR",
+  "device_id": "web",
+  "location": "DE",
+  "timestamp": "2026-02-19T10:00:00Z"
 }
-❌ BLOCKED
+
+AI Response:
+
 {
-  "status": "BLOCKED",
+  "risk_score": 10,
+  "decision": "APPROVE",
+  "reasons": ["No risk signals detected"]
+}
+AI Decision Handling
+
+The backend processes the AI response:
+
+Decision	Action
+APPROVE	Execute transaction
+REVIEW	Hold transaction
+BLOCK	Reject transaction
+
+Example blocked response:
+
+{
+  "status": "BLOCK",
   "message": "Transaction blocked by AI",
   "ai": {
-    "fraudScore": 0.91,
-    "decision": "BLOCK",
-    "reason": "High risk"
+    "risk_score": 90,
+    "decision": "BLOCK"
   }
 }
+Testing with Postman
 
-🚫 Possible Errors
-Insufficient Balance
-{
-  "message": "Insufficient balance"
-}
-Receiver not found
-{
-  "message": "Receiver not found"
-}
-Unauthorized
-{
-  "message": "Missing token"
-}
-🧪 Testing Guide (Postman)
-1) Signup 2 users
+1️⃣ Login
 
-a@test.com
+POST /auth/login
 
-b@test.com
+Copy JWT token.
 
-2) Login as A
+2️⃣ Send transaction
 
-→ copy token
-
-3) Credit wallet
-POST /wallet/credit
-{
-  "userId": "A_ID",
-  "amount": 500
-}
-4) Send money
 POST /tx/send
+
+Headers
+
+Authorization: Bearer TOKEN
+
+Body
+
 {
-  "toEmail": "b@test.com",
+  "toEmail": "receiver@test.com",
   "amount": 100
 }
-
-You will get:
-
-APPROVED / BLOCKED / REVIEW
-
-🎯 Demo Flow
-Login → Dashboard → Add Money → Send Money
-→ AI Fraud Decision → Popup → Success / Blocked
-🔄 AI Integration (for AI Team)
-
-Replace inside:
-
-src/services/aiCheck.service.js
-
-Current mock:
-
-Math.random()
-
-Replace with:
-
-axios.post(AI_CHECK_URL, payload)
-
-Expected AI response format:
-
-{
-  "fraudScore": 0.82,
-  "decision": "BLOCK",
-  "reason": "High risk"
-}
+Health Check (AI Service)
+GET http://127.0.0.1:8001/v1/health
