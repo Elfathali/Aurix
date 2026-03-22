@@ -2,9 +2,11 @@ const express = require("express");
 const cors = require("cors");
 const morgan = require("morgan");
 
+
 const authRoutes = require("./routes/auth.routes");
 const walletRoutes = require("./routes/wallet.routes");
 const txRoutes = require("./routes/transaction.routes");
+const homeRoutes = require("./routes/home.routes");
 
 const app = express();
 
@@ -20,5 +22,6 @@ console.log("txRoutes type:", typeof txRoutes);
 app.use("/auth", authRoutes);
 app.use("/wallet", walletRoutes);
 app.use("/tx", txRoutes);
+app.use("/home", homeRoutes);
 
 module.exports = app;

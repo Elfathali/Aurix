@@ -8,7 +8,7 @@ const {
 } = require("../controllers/wallet.controller");
 
 router.get("/me", auth, getMyWallet);
-router.post("/credit", creditWallet);
+router.post("/credit", auth, creditWallet);
 
 // Stripe add-money placeholders
 router.post("/add-money/create-session", auth, createAddMoneySession);
