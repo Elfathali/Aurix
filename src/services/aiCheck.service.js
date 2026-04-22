@@ -21,4 +21,4 @@ async function checkFraud({ userId, amount, currency = "EUR", device_id = "web",
   return aiResp.data;
 }
 
-module.exports = { checkFraud };
+module.exports = { checkFraud }; 
