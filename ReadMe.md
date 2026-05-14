@@ -245,6 +245,7 @@ Request Body
   "toEmail": "receiver@test.com",
   "amount": 100
 }
+<<<<<<< HEAD
 ```
 Success Response
 ```json
@@ -281,6 +282,90 @@ Error Responses
 }
 ```
 ---
+=======
+
+# Home
+Get wallet balance and recent transactions
+
+**GET /**
+
+**Headers:**
+
+    Authorization: Bearer TOKEN
+
+**Response:**
+
+```
+{
+  "wallet_balance": 1000,
+  "transactions": {
+    "received": [ /* last 5 received transactions */ ],
+    "sent": [ /* last 5 sent transactions */ ]
+  }
+}
+```
+
+# Credit Wallet
+Add funds to your wallet
+
+**POST /wallet/credit**
+
+**Headers:**
+
+    Authorization: Bearer TOKEN
+
+**Body:**
+
+```
+{
+  "amount": 100
+}
+```
+
+**Response:**
+
+```
+{
+  "message": "Wallet credited successfully",
+  "wallet": { /* updated wallet object */ }
+}
+```
+
+# Send Money
+Transfer funds to another user
+
+**POST /tx/send**
+
+**Headers:**
+
+    Authorization: Bearer TOKEN
+
+**Body:**
+
+```
+{
+  "toUsername": "receiverUser",
+  "walletCode": "optional-wallet-code",
+  "amount": 100,
+  "currency": "USD", // optional
+  "device_id": "web", // optional
+  "location": "DE" // optional
+}
+```
+
+**Response:**
+
+```
+{
+  "message": "Money sent successfully",
+  "transaction": { /* transaction details */ }
+}
+```
+
+**Note:**
+- At least one of `toUsername` or `walletCode` is required.
+- AI fraud check is performed before transaction execution.
+>>>>>>> 71dec04ce28dfd506e44e03d2c105fa068a8900a
 AI Fraud Check Integration
 Before executing a transaction, the backend calls the AI service.
 Endpoint used
