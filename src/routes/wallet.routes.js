@@ -7,8 +7,8 @@ const {
   confirmAddMoney
 } = require("../controllers/wallet.controller");
 
-router.get("/me", auth, getMyWallet);
-router.post("/credit", creditWallet);
+router.get("/balance", auth, getMyWallet);
+router.post("/credit", auth, creditWallet);
 
 // Stripe add-money placeholders
 router.post("/add-money/create-session", auth, createAddMoneySession);
