@@ -3,22 +3,17 @@ const mongoose = require("mongoose");
 const Wallet = require("../models/Wallet");
 const Transaction = require("../models/Transaction");
 const User = require("../models/User");
-<<<<<<< HEAD
 
 const {
   checkFraud
 } = require("../services/aiCheck.service");
-=======
-const { checkFraud } = require("../services/aiCheck.service");
-const { get } = require("mongoose");
->>>>>>> 71dec04ce28dfd506e44e03d2c105fa068a8900a
-
 
 /*
 NOTES:
-- For simplicity, the AI fraud check is mocked and not actually called. In a real implementation, you would call the AI service and handle its response accordingly.
-- For production use, we need to implement proper transaction management to ensure atomicity, especially when updating wallet balances. This might involve using MongoDB transactions or a more robust database solution.
+- AI fraud check mocked for demo
+- MongoDB transactions used for atomicity
 */
+
 exports.sendMoney = async (req, res) => {
 
   const session = await mongoose.startSession();
@@ -38,30 +33,43 @@ exports.sendMoney = async (req, res) => {
 
     const amt = Number(amount);
 
-<<<<<<< HEAD
     // Validate input
-    if (!toEmail || !amt || amt <= 0) {
+    if ((!toUsername && !walletCode) || !amt || amt <= 0) {
+
       await session.abortTransaction();
 
       return res.status(400).json({
-        message: "toEmail and valid amount required"
+        message: "Receiver and valid amount required"
       });
-=======
-    if ((!toUsername && !walletCode) || !amt || amt <= 0) {
-      return res.status(400).json({ message: "toUsername or walletCode and valid amount required" });
->>>>>>> 71dec04ce28dfd506e44e03d2c105fa068a8900a
     }
 
     const fromUserId = req.user.id;
 
-<<<<<<< HEAD
-    // Find receiver
-    const normalizedEmail = toEmail.toLowerCase();
+    // Find receiver user
+    let toUser = null;
 
-    const toUser = await User.findOne({
-      email: normalizedEmail
-    });
+    // Send by username
+    if (toUsername) {
 
+      toUser = await User.findOne({
+        username: toUsername
+      });
+    }
+
+    // Send by wallet code
+    if (walletCode) {
+
+      const wallet = await Wallet.findOne({
+        code: walletCode
+      });
+
+      if (wallet) {
+
+        toUser = await User.findById(wallet.userId);
+      }
+    }
+
+    // Receiver not found
     if (!toUser) {
 
       await session.abortTransaction();
@@ -89,10 +97,6 @@ exports.sendMoney = async (req, res) => {
     const toWallet = await Wallet.findOne({
       userId: toUser._id
     }).session(session);
-=======
-    const fromWallet = await Wallet.findOne({ userId: fromUserId });
-    const toWallet = !toUsername ? await getUserWalletByCode(walletCode) : await getUserWalletByUsername(toUsername);
->>>>>>> 71dec04ce28dfd506e44e03d2c105fa068a8900a
 
     if (!fromWallet || !toWallet) {
 
@@ -101,9 +105,6 @@ exports.sendMoney = async (req, res) => {
       return res.status(404).json({
         message: "Wallet not found"
       });
-    }
-    if (String(toWallet.userId) === String(fromUserId)) {
-      return res.status(400).json({ message: "Cannot send money to yourself" });
     }
 
     // Balance check
@@ -116,11 +117,10 @@ exports.sendMoney = async (req, res) => {
       });
     }
 
-    // Fraud detection
+    // AI Fraud Detection
     let aiResult;
 
     try {
-<<<<<<< HEAD
 
       aiResult = await checkFraud({
         userId: fromUserId,
@@ -130,15 +130,6 @@ exports.sendMoney = async (req, res) => {
         location
       });
 
-=======
-      // aiResult = await checkFraud({
-      //   userId: fromUserId,
-      //   amount: amt,
-      //   currency,
-      //   device_id,
-      //   location
-      // });
->>>>>>> 71dec04ce28dfd506e44e03d2c105fa068a8900a
     } catch (err) {
 
       await session.abortTransaction();
@@ -148,47 +139,49 @@ exports.sendMoney = async (req, res) => {
       });
     }
 
-<<<<<<< HEAD
     const {
       risk_score,
       decision,
       reasons
     } = aiResult;
-=======
-    // const { risk_score, decision, reasons } = aiResult;
->>>>>>> 71dec04ce28dfd506e44e03d2c105fa068a8900a
 
-    // Create transaction record
+    // Create transaction FIRST as pending
     const tx = await Transaction.create([{
+
       fromUser: fromUserId,
       toUser: toWallet.userId,
       amount: amt,
-<<<<<<< HEAD
+
       fraudScore: risk_score,
+
       reason: Array.isArray(reasons)
         ? reasons.join(", ")
         : String(reasons || ""),
-      status:
-        decision === "BLOCK" ||
-        decision === "REVIEW"
-          ? "rejected"
-          : "approved"
+
+      status: "pending"
+
     }], { session });
 
-    // Stop transfer if fraud detected
+    // Fraud detected
     if (
       decision === "BLOCK" ||
       decision === "REVIEW"
     ) {
 
+      tx[0].status = "rejected";
+
+      await tx[0].save({ session });
+
       await session.commitTransaction();
 
       return res.json({
+
         status: "NOT_EXECUTED",
         decision,
         risk_score,
         reasons,
         tx: tx[0]
+
       });
     }
 
@@ -196,62 +189,29 @@ exports.sendMoney = async (req, res) => {
     fromWallet.balance -= amt;
     toWallet.balance += amt;
 
-    // Save updated wallets
+    // Save wallets
     await fromWallet.save({ session });
     await toWallet.save({ session });
 
-    // Commit everything
+    // Mark transaction approved
+    tx[0].status = "approved";
+
+    await tx[0].save({ session });
+
+    // Commit transaction
     await session.commitTransaction();
 
     return res.json({
+
       status: "EXECUTED",
       decision,
       risk_score,
       reasons,
       tx: tx[0]
-=======
-      // fraudScore: risk_score,
-      // reason: Array.isArray(reasons) ? reasons.join(", ") : String(reasons || ""),
-      // status: decision === "BLOCK" || decision === "REVIEW" ? "rejected" : "approved"
-    });
-    if (!tx) {
-      console.error("Transaction creation failed");
-      return res.status(500).json({ message: "Transaction failed" });
-    }
 
-    // if (decision === "BLOCK" || decision === "REVIEW") {
-    //   return res.json({
-    //     status: "NOT_EXECUTED",
-    //     decision,
-    //     risk_score,
-    //     reasons,
-    //     tx
-    //   });
-    // }
-
-    fromWallet.balance -= amt;
-    toWallet.balance += amt;
-    try {
-    await fromWallet.save();
-    console.log("From wallet updated:", fromWallet);
-    await toWallet.save();
-    console.log("To wallet updated:", toWallet);
-    } catch (err) {
-      console.error("Error updating wallets:", err);
-      return res.status(500).json({ message: "Failed to update wallets" });
-    }
-
-    return res.json({
-      status: "EXECUTED",
-      // decision,
-      // risk_score,
-      // reasons,
-      tx
->>>>>>> 71dec04ce28dfd506e44e03d2c105fa068a8900a
     });
 
   } catch (err) {
-<<<<<<< HEAD
 
     console.error(err);
 
@@ -264,18 +224,98 @@ exports.sendMoney = async (req, res) => {
   } finally {
 
     session.endSession();
-=======
-    console.error("Error in sendMoney controller:", err);
-    return res.status(500).json({ message: "Internal server error" });
->>>>>>> 71dec04ce28dfd506e44e03d2c105fa068a8900a
   }
 };
 
-getUserWalletByUsername = async (username) => {
-  const user = await User.findOne({ username });
-  if (!user) return null;
-  return await Wallet.findOne({ userId: user._id });
+
+
+// ==========================================
+// TRANSACTION HISTORY
+// ==========================================
+
+exports.getHistory = async (req, res) => {
+
+  try {
+
+    const transactions = await Transaction.find({
+
+      $or: [
+        { fromUser: req.user.id },
+        { toUser: req.user.id }
+      ]
+
+    })
+
+    .populate("fromUser", "username email")
+    .populate("toUser", "username email")
+
+    .sort({ createdAt: -1 });
+
+    return res.json(transactions);
+
+  } catch (err) {
+
+    return res.status(500).json({
+      message: err.message
+    });
+
+  }
 };
-getUserWalletByCode = async (code) => {
-  return await Wallet.findOne({ code });
+
+
+// ==========================================
+// PENDING TRANSACTIONS
+// ==========================================
+
+exports.getPendingTransactions = async (req, res) => {
+
+  try {
+
+    const pending = await Transaction.find({
+
+      fromUser: req.user.id,
+      status: "pending"
+
+    })
+
+    .sort({ createdAt: -1 });
+
+    return res.json(pending);
+
+  } catch (err) {
+
+    return res.status(500).json({
+      message: err.message
+    });
+
+  }
+};
+
+
+// ==========================================
+// COMPLETED TRANSACTIONS
+// ==========================================
+
+exports.getCompletedTransactions = async (req, res) => {
+
+  try {
+
+    const completed = await Transaction.find({
+
+      fromUser: req.user.id,
+      status: "approved"
+
+    })
+
+    .sort({ createdAt: -1 });
+
+    return res.json(completed);
+
+  } catch (err) {
+
+    return res.status(500).json({
+      message: err.message
+    });
+
+  }
 };

@@ -21,7 +21,7 @@ console.log("txRoutes type:", typeof txRoutes);
 
 app.use("/auth", authRoutes);
 app.use("/wallet", walletRoutes);
-app.use("/tx", txRoutes);
+app.use("/api/transactions", txRoutes);
 app.use("/home", homeRoutes);
 
 module.exports = app;
