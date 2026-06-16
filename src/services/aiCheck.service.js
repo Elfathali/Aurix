@@ -13,7 +13,7 @@ async function checkFraud({ userId, amount, currency = "EUR", device_id = "web",
   };
 
   const aiResp = await axios.post(
-    `${AI_BASE_URL}/v1/fraud-score`,
+    `${AI_BASE_URL}/fraud-score`,
     aiPayload,
     { timeout: 5000 }
   );

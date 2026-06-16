@@ -9,7 +9,16 @@ const walletSchema = new mongoose.Schema(
         balance: {
             type: Number, default: 0
         },
-        code: { type: String, default: "" }
+        balances: {
+            EUR: { type: Number, default: 0 },
+            USD: { type: Number, default: 0 },
+            GBP: { type: Number, default: 0 },
+            NGN: { type: Number, default: 0 },
+            GHS: { type: Number, default: 0 },
+            KES: { type: Number, default: 0 }
+        },
+        code: { type: String, default: "" },
+        pinHash: { type: String, default: null }
     },
     { timestamps: true }
 );

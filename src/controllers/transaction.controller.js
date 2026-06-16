@@ -1,8 +1,15 @@
 const mongoose = require("mongoose");
+const bcrypt = require("bcryptjs");
 
 const Wallet = require("../models/Wallet");
 const Transaction = require("../models/Transaction");
 const User = require("../models/User");
+const {
+  adjustCurrencyBalance,
+  ensureWalletBalances,
+  getCurrencyBalance,
+  normalizeCurrency
+} = require("../services/walletBalance.service");
 
 const {
   checkFraud
@@ -26,12 +33,14 @@ exports.sendMoney = async (req, res) => {
       toUsername,
       walletCode,
       amount,
-      currency = "USD",
+      pin,
+      currency = "EUR",
       device_id = "web",
       location = "DE"
     } = req.body;
 
     const amt = Number(amount);
+    const txCurrency = normalizeCurrency(currency);
 
     // Validate input
     if ((!toUsername && !walletCode) || !amt || amt <= 0) {
@@ -40,6 +49,15 @@ exports.sendMoney = async (req, res) => {
 
       return res.status(400).json({
         message: "Receiver and valid amount required"
+      });
+    }
+
+    if (!/^\d{4}$/.test(String(pin))) {
+
+      await session.abortTransaction();
+
+      return res.status(400).json({
+        message: "Valid 4-digit wallet PIN is required"
       });
     }
 
@@ -107,8 +125,31 @@ exports.sendMoney = async (req, res) => {
       });
     }
 
+    ensureWalletBalances(fromWallet);
+    ensureWalletBalances(toWallet);
+
+    if (!fromWallet.pinHash) {
+
+      await session.abortTransaction();
+
+      return res.status(400).json({
+        message: "Wallet PIN is not set"
+      });
+    }
+
+    const pinOk = await bcrypt.compare(String(pin), fromWallet.pinHash);
+
+    if (!pinOk) {
+
+      await session.abortTransaction();
+
+      return res.status(401).json({
+        message: "Invalid wallet PIN"
+      });
+    }
+
     // Balance check
-    if (fromWallet.balance < amt) {
+    if (getCurrencyBalance(fromWallet, txCurrency) < amt) {
 
       await session.abortTransaction();
 
@@ -151,6 +192,8 @@ exports.sendMoney = async (req, res) => {
       fromUser: fromUserId,
       toUser: toWallet.userId,
       amount: amt,
+      currency: txCurrency,
+      type: "send",
 
       fraudScore: risk_score,
 
@@ -186,8 +229,8 @@ exports.sendMoney = async (req, res) => {
     }
 
     // Transfer money
-    fromWallet.balance -= amt;
-    toWallet.balance += amt;
+    adjustCurrencyBalance(fromWallet, txCurrency, -amt);
+    adjustCurrencyBalance(toWallet, txCurrency, amt);
 
     // Save wallets
     await fromWallet.save({ session });
